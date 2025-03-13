@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dual Camera App</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f0f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .camera-app {
+      width: 90%;
+      max-width: 600px;
+      background-color: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      padding: 10px;
+      text-align: center;
+    }
+
+    .camera-view {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    video {
+      width: 48%;
+      height: 300px;
+      border-radius: 10px;
+      border: 2px solid black;
+    }
+
+    .camera-controls {
+      margin-top: 10px;
+      display: flex;
+      justify-content: space-around;
+      padding: 10px;
+      background-color: #eee;
+    }
+
+    button {
+      padding: 10px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="camera-app">
+    <h2>Dual Camera App</h2>
+
+    <div class="camera-view">
+      <video id="front-camera" autoplay playsinline></video>
+      <video id="back-camera" autoplay playsinline></video>
+    </div>
+
+    <div class="camera-controls">
+      <button id="capture-photo">Capture Photo</button>
+      <button id="start-recording">Start Recording</button>
+      <button id="stop-recording">Stop Recording</button>
+    </div>
+  </div>
+
+  <script>
+    let frontStream, backStream;
+    let frontRecorder, backRecorder;
+    let frontChunks = [], backChunks = [];
+
+    async function startCameras() {
+      try {
+        // Get all video devices (cameras)
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+
+        if (videoDevices.length < 2) {
+          alert("Dual camera setup requires at least two cameras.");
+          return;
+        }
+
+        // Get front and back camera IDs
+        const frontCameraId = videoDevices[0].deviceId;
+        const backCameraId = videoDevices[1].deviceId;
+
+        // Open front camera
+        frontStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { deviceId: { exact: frontCameraId } } 
+        });
+        document.getElementById('front-camera').srcObject = frontStream;
+
+        // Open back camera
+        backStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { deviceId: { exact: backCameraId } } 
+        });
+        document.getElementById('back-camera').srcObject = backStream;
+
+      } catch (error) {
+        console.error("Error accessing cameras:", error);
+      }
+    }
+
+    // Capture photo
+    document.getElementById('capture-photo').addEventListener('click', function () {
+      captureImage(document.getElementById('front-camera'));
+      captureImage(document.getElementById('back-camera'));
+    });
+
+    function captureImage(videoElement) {
+      const canvas = document.createElement('canvas');
+      canvas.width = videoElement.videoWidth;
+      canvas.height = videoElement.videoHeight;
+      canvas.getContext('2d').drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
+      const photoURL = canvas.toDataURL('image/png');
+      console.log("Captured Photo:", photoURL);
+    }
+
+    // Start recording
+    document.getElementById('start-recording').addEventListener('click', function () {
+      frontRecorder = new MediaRecorder(frontStream);
+      backRecorder = new MediaRecorder(backStream);
+
+      frontRecorder.ondataavailable = e => frontChunks.push(e.data);
+      backRecorder.ondataavailable = e => backChunks.push(e.data);
+
+      frontRecorder.start();
+      backRecorder.start();
+    });
+
+    // Stop recording
+    document.getElementById('stop-recording').addEventListener('click', function () {
+      frontRecorder.stop();
+      backRecorder.stop();
+
+      frontRecorder.onstop = () => saveVideo(frontChunks, 'front-camera-video.webm');
+      backRecorder.onstop = () => saveVideo(backChunks, 'back-camera-video.webm');
+    });
+
+    function saveVideo(chunks, fileName) {
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      const videoURL = URL.createObjectURL(blob);
+      console.log("Recorded Video:", videoURL);
+    }
+
+    // Start both cameras on load
+    startCameras();
+  </script>
+
+</body>
+</html>
