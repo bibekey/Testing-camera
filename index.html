@@ -1,158 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dual Camera App</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f0f0f0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EMI Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
 
-    .camera-app {
-      width: 100%;
-      max-width: 600px;
-      background-color: #fff;
-      border-radius: 10px;
-      overflow: hidden;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-      padding: 10px;
-      text-align: center;
-    }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            max-width: 350px;
+            width: 100%;
+            text-align: center;
+        }
 
-    .camera-view {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
+        h2 {
+            margin-bottom: 15px;
+        }
 
-    video {
-      width: 90%;
-      height: auto;
-      border-radius: 10px;
-      border: 2px solid black;
-      margin: 5px 0;
-    }
+        input {
+            width: 90%;
+            padding: 8px;
+            margin: 8px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
 
-    .camera-controls {
-      margin-top: 10px;
-      display: flex;
-      justify-content: space-around;
-      padding: 10px;
-      background-color: #eee;
-    }
+        button {
+            width: 100%;
+            padding: 10px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 18px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
 
-    button {
-      padding: 10px;
-      font-size: 14px;
-      cursor: pointer;
-    }
-  </style>
+        button:hover {
+            background: #218838;
+        }
+
+        .result {
+            margin-top: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+    </style>
 </head>
 <body>
 
-  <div class="camera-app">
-    <h2>Dual Camera App</h2>
-
-    <div class="camera-view">
-      <video id="front-camera" autoplay playsinline></video>
-      <video id="back-camera" autoplay playsinline></video>
+    <div class="container">
+        <h2>EMI Calculator</h2>
+        
+        <label>Loan Amount (Rs):</label>
+        <input type="number" id="loanAmount" placeholder="Enter loan amount">
+        
+        <label>Annual Interest Rate (%):</label>
+        <input type="number" id="interestRate" placeholder="Enter interest rate">
+        
+        <label>Loan Tenure (Months):</label>
+        <input type="number" id="loanTenure" placeholder="Enter tenure in months">
+        
+        <button onclick="calculateEMI()">Calculate EMI</button>
+        
+        <div class="result" id="emiResult">EMI: Rs 0</div>
     </div>
 
-    <div class="camera-controls">
-      <button id="capture-photo">Capture Photo</button>
-      <button id="start-recording">Start Recording</button>
-      <button id="stop-recording">Stop Recording</button>
-    </div>
-  </div>
+    <script>
+        function calculateEMI() {
+            let P = parseFloat(document.getElementById("loanAmount").value);
+            let annualRate = parseFloat(document.getElementById("interestRate").value);
+            let N = parseInt(document.getElementById("loanTenure").value);
 
-  <script>
-    let frontStream, backStream;
-    let frontRecorder, backRecorder;
-    let frontChunks = [], backChunks = [];
+            if (isNaN(P) || isNaN(annualRate) || isNaN(N) || P <= 0 || annualRate <= 0 || N <= 0) {
+                alert("Please enter valid values.");
+                return;
+            }
 
-    async function startCameras() {
-      try {
-        // Get all video input devices
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+            let R = annualRate / 12 / 100; // Monthly interest rate
 
-        if (videoDevices.length < 2) {
-          alert("Your device does not support dual cameras at the same time.");
-          return;
+            let EMI = (P * R * Math.pow(1 + R, N)) / (Math.pow(1 + R, N) - 1);
+            EMI = EMI.toFixed(2); // Round to 2 decimal places
+
+            document.getElementById("emiResult").innerText = `EMI: Rs ${EMI}`;
         }
-
-        // Open front camera
-        frontStream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: "user" } 
-        });
-        document.getElementById('front-camera').srcObject = frontStream;
-
-        // Open back camera
-        backStream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: "environment" } 
-        });
-        document.getElementById('back-camera').srcObject = backStream;
-
-      } catch (error) {
-        console.error("Error accessing cameras:", error);
-        alert("Your browser may not support using both cameras at the same time.");
-      }
-    }
-
-    // Capture photo from both cameras
-    document.getElementById('capture-photo').addEventListener('click', function () {
-      captureImage(document.getElementById('front-camera'));
-      captureImage(document.getElementById('back-camera'));
-    });
-
-    function captureImage(videoElement) {
-      const canvas = document.createElement('canvas');
-      canvas.width = videoElement.videoWidth;
-      canvas.height = videoElement.videoHeight;
-      canvas.getContext('2d').drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-
-      const photoURL = canvas.toDataURL('image/png');
-      console.log("Captured Photo:", photoURL);
-    }
-
-    // Start recording from both cameras
-    document.getElementById('start-recording').addEventListener('click', function () {
-      frontRecorder = new MediaRecorder(frontStream);
-      backRecorder = new MediaRecorder(backStream);
-
-      frontRecorder.ondataavailable = e => frontChunks.push(e.data);
-      backRecorder.ondataavailable = e => backChunks.push(e.data);
-
-      frontRecorder.start();
-      backRecorder.start();
-    });
-
-    // Stop recording and save videos
-    document.getElementById('stop-recording').addEventListener('click', function () {
-      frontRecorder.stop();
-      backRecorder.stop();
-
-      frontRecorder.onstop = () => saveVideo(frontChunks, 'front-camera-video.webm');
-      backRecorder.onstop = () => saveVideo(backChunks, 'back-camera-video.webm');
-    });
-
-    function saveVideo(chunks, fileName) {
-      const blob = new Blob(chunks, { type: 'video/webm' });
-      const videoURL = URL.createObjectURL(blob);
-      console.log("Recorded Video:", videoURL);
-    }
-
-    // Start both cameras when the page loads
-    startCameras();
-  </script>
+    </script>
 
 </body>
 </html>
